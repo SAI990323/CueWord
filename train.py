@@ -49,7 +49,7 @@ class CueWordSelectNet(nn.Module):
         MLP_output = self.layer1(MLP_input)
         MLP_output = self.layer2(MLP_output)
 
-        return torch.softmax(MLP_output), (h_t, c_t)
+        return torch.softmax(MLP_output, dim = 0), (h_t, c_t)
 
 class Decoder(nn.Module):
     def __init__(self, input_size = 600, hidden_size = 1000):
@@ -79,7 +79,7 @@ class Decoder(nn.Module):
             (h_t, c_t) = self.decoder1(l1_input,(h_t, c_t))
             l2_input = torch.cat([zeros, h_t2, h_t], dim = 1)
             (h_t2, c_t2) = self.decoder2(l2_input, (h_t2,c_t2))
-            output_sentence[:,i,:] = torch.softmax(self.linear(h_t2))
+            output_sentence[:,i,:] = torch.softmax(self.linear(h_t2), dim = 0)
             zeros = output_sentence[:,i,:]
         return output_sentence
 
@@ -112,62 +112,62 @@ def test_cue_word():
 
 
 def test(net = None, dnet = None):
-    sampling_times = 5
-    T = 3
-    #data, target = load.load_data("trainfinal_en.txt")
-    id2dict = load.get_id_dict()
-    id_dict = load.get_cue_dict_id()
-    cue_dict = load.get_cue_dict()
-    word2vec = load.read_word2vec("word2vec.txt")
-    if net == None:
-        checkpoint = torch.load("single_net.model")
-        net = CueWordSelectNet().to(device)
-        net.load_state_dict(checkpoint['net'])
-    if dnet == None:
-        checkpoint = torch.load("single_dnet.model")
-        dnet = Decoder().to(device)
-        dnet.load_state_dict(checkpoint['dnet'])
-    with open("test.txt", 'r', encoding='UTF-8') as f:
-        data = []
-        target = []
-        for line in f:
-            if len(line) == 1:
-                lines = np.array(data)
-                targets = np.array(target)
-                L = len(lines)
-                for j in range(1, L):
-                    inputs = np.array(lines[j - 1])
-                    Cue = np.array(targets[j - 1])
-                    inputs = np.expand_dims(inputs, axis=0)
-                    Cue = np.expand_dims(Cue, axis=0)
-                    Cue = Cue.reshape((1, 1))
-                    inputs = torch.FloatTensor(inputs).to(device)
-                    Cue = torch.LongTensor(Cue).to(device)
-                    cue_word, (h_t, c_t) = net(inputs, Cue)
-                    _, pred = torch.topk(cue_word, sampling_times)
-                    for m in range(sampling_times):
-                        p = torch.zeros(1, 1000)
-                        p[0, pred[0, m]] = 1
-                        p = p.unsqueeze(dim=0)
-                        for k in range(j, j + T):
-                            sentence = dnet(p.to(device), (h_t, c_t))
-                            q = sentence.squeeze(dim = 0)
-                            for t in range(len(q)):
-                                print(id2dict[int(torch.argmax(q[t]))])
-                data.clear()
-                target.clear()
-            else:
-                words = line.strip().split()
-                sentence = load.initial(words[:-1], word2vec)
-                data.append(sentence)
-                target.append(cue_dict[words[-1]])
+    with torch.no_grad():
+        sampling_times = 5
+        T = 3
+        #data, target = load.load_data("trainfinal_en.txt")
+        id2dict = load.get_id_dict()
+        id_dict = load.get_cue_dict_id()
+        cue_dict = load.get_cue_dict()
+        word2vec = load.read_word2vec("word2vec.txt")
+        if net == None:
+            checkpoint = torch.load("single_net.model")
+            net = CueWordSelectNet().to(device)
+            net.load_state_dict(checkpoint['net'])
+        if dnet == None:
+            checkpoint = torch.load("single_dnet.model")
+            dnet = Decoder().to(device)
+            dnet.load_state_dict(checkpoint['dnet'])
+        with open("test.txt", 'r', encoding='UTF-8') as f:
+            data = []
+            target = []
+            for line in f:
+                if len(line) == 1:
+                    lines = np.array(data)
+                    targets = np.array(target)
+                    L = len(lines)
+                    for j in range(1, L):
+                        inputs = np.array(lines[j - 1])
+                        Cue = np.array(targets[j - 1])
+                        inputs = np.expand_dims(inputs, axis=0)
+                        Cue = np.expand_dims(Cue, axis=0)
+                        Cue = Cue.reshape((1, 1))
+                        inputs = torch.FloatTensor(inputs).to(device)
+                        Cue = torch.LongTensor(Cue).to(device)
+                        cue_word, (h_t, c_t) = net(inputs, Cue)
+                        _, pred = torch.topk(cue_word, sampling_times)
+                        for m in range(sampling_times):
+                            p = torch.zeros(1, 1000)
+                            p[0, pred[0, m]] = 1
+                            p = p.unsqueeze(dim=0)
+                            for k in range(j, j + T):
+                                sentence = dnet(p.to(device), (h_t, c_t))
+                                q = sentence.squeeze(dim = 0)
+                                for t in range(len(q)):
+                                    print(id2dict[int(torch.argmax(q[t]))])
+                    data.clear()
+                    target.clear()
+                else:
+                    words = line.strip().split()
+                    sentence = load.initial(words[:-1], word2vec)
+                    data.append(sentence)
+                    target.append(cue_dict[words[-1]])
 
 def train_cue_word(epochs = 10, batch_size = 64, learning_rate = 0.0001):
     data, target, sentence_target = load.load_data_cue_word("trainfinal_en.txt")
     total = len(data)
     train_size = int(total / 10) * 8
     vali_size = int(total / 10) * 9
-    print(total)
     trainset = MyData(data[:train_size], target[:train_size], sentence_target[:train_size])
     valiset = MyData(data[train_size:vali_size], target[train_size:vali_size], sentence_target[train_size:vali_size])
     testset = MyData(data[vali_size:], target[vali_size:], sentence_target[vali_size:])
@@ -180,8 +180,6 @@ def train_cue_word(epochs = 10, batch_size = 64, learning_rate = 0.0001):
     optimizer1 = torch.optim.Adam(dnet.parameters(), lr=learning_rate)
     lossfunc = nn.CrossEntropyLoss()
     lastcorrect = 0
-    h_t = None
-    c_t = None
     for epoch in range(epochs):
         for data, target, sentence_target in trainset:
             input = data.to(device)
@@ -193,14 +191,15 @@ def train_cue_word(epochs = 10, batch_size = 64, learning_rate = 0.0001):
             decoder_input = torch.zeros(input.size(0), input.size(1), 1000).to(device)
             for i in range(input.size(1)):
                 decoder_input[:, 0, :] = p.detach()
-            sentences = dnet(decoder_input, (h_t.detach(), c_t.detach()))
-
-            Loss = 0
-            for i, da in enumerate(sentences.chunk(sentences.size(1), dim=1)):
-                da = da.to(device)
-                da = da.squeeze(1)
-                tar = sentence_target[:,i].long().to(device)
-                Loss = Loss + lossfunc(da, tar)
+            sentences = dnet(decoder_input.detach(), (h_t.detach(), c_t.detach()))
+            # for i, da in enumerate(sentences.chunk(sentences.size(1), dim=1)):
+            #     da = da.to(device)
+            #     da = da.squeeze(1)
+            #     tar = sentence_target[:,i].long().to(device)
+            #     Loss = Loss + lossfunc(da, tar)
+            da = sentences.reshape((sentences.size(0) * sentences.size(1), sentences.size(2)))
+            tar = sentence_target.reshape((sentence_target.size(0) * sentence_target.size(1))).long()
+            Loss = lossfunc(da, tar)
             dnet.zero_grad()
             Loss.backward()
             optimizer1.step()
