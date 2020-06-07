@@ -1,48 +1,104 @@
 import numpy as np
 
+sentence_len = 44
+vec_len = 600
+
+
+# 按照论文所说 一句话最多44个词 不足补0 超过截断
+
+def read_word2vec(file):
+    with open(file, 'r', encoding='utf-8') as f:
+        word2vec = {}
+        cnt = 0
+        for line in f:
+            if cnt == 0:
+                cnt = 1
+                continue
+            line = line.strip().split()
+            word2vec[line[0]] = np.array(line[1:], dtype=np.float64)
+
+    return word2vec
+
+
 def initial(words, word2vec):
     sentence = []
-    zero = [0 for i in range(100)]
-    num = 0;
+    zero = [0 for i in range(vec_len)]
+    ones = [1 for i in range(vec_len)]
+    num = 0
     for word in words:
-        if num == 44:
+        if num == sentence_len:
             break
         if word in word2vec.keys():
             sentence.append(word2vec[word])
-            num += 1
-    for i in range(44 - num):
+        else:
+            sentence.append(ones)
+        num += 1
+    for i in range(sentence_len - num):
         sentence.insert(0, zero)
     return sentence
 
+
 def get_dict():
     dict = {}
-    with open("trainfinal.txt",'r', encoding='UTF-8') as f:
+    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             lines = line.strip().split()
             for word in lines:
                 if dict.get(word) == None:
-                    cnt= cnt + 1
                     dict[word] = cnt
+                    cnt = cnt + 1
     return dict
+
+def get_id_dict():
+    dict = {}
+    id_dict = {}
+    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+        cnt = 0
+        for line in f:
+            lines = line.strip().split()
+            for word in lines:
+                if dict.get(word) == None:
+                    dict[word] = cnt
+                    id_dict[cnt] = word
+                    cnt = cnt + 1
+    return id_dict
 
 def get_cue_dict():
     cue_dict = {}
-    with open("dict.txt", 'r' , encoding='UTF-8') as f:
+    with open("dict.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
-            cnt = cnt + 1
-            if (cnt == 1000):
-                break
             words = line.strip().split()
+            if len(words[0]) < 3:
+                continue
+            if (cnt == 999):
+                break
             cue_dict[words[0]] = cnt
-        cue_dict["EPT"] = 1000
+            cnt = cnt + 1
+        cue_dict["EPT"] = 999
     return cue_dict
+
+def get_cue_dict_id():
+    cue_dict = {}
+    with open("dict.txt", 'r', encoding='UTF-8') as f:
+        cnt = 0
+        for line in f:
+            words = line.strip().split()
+            if len(words[0]) < 3:
+                continue
+            if (cnt == 999):
+                break
+            cue_dict[cnt] = words[0]
+            cnt = cnt + 1
+        cue_dict[999] = "EPT"
+    return cue_dict
+
 
 def load_data_cue_word(file):
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = {}
+    word2vec = read_word2vec("word2vec.txt")
     data = []
     target = []
     sentence_target = []
@@ -60,20 +116,18 @@ def load_data_cue_word(file):
                 p = []
                 for word in words[:-1]:
                     p.append(dict[word])
-                while len(p) < 44:
+                while len(p) < sentence_len:
                     p.append(0)
                 target.append(cue_dict[words[-1]])
-                sentence_target.append(p[:44])
+                sentence_target.append(p[:sentence_len])
             lastline = line
-            if len(data) == 1000:
-                break
     return np.array(data), np.array(target), np.array(sentence_target)
 
 
 def load_data(file):
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = {}
+    word2vec = read_word2vec("word2vec.txt")
     with open(file, 'r', encoding='UTF-8') as f:
         data = []
         target = []
@@ -88,13 +142,9 @@ def load_data(file):
                 sentence = initial(words[:-1], word2vec)
                 data.append(sentence)
                 target.append(cue_dict[words[-1]])
-            if len(data) == 1000:
-                break
     target.append(-1)
-    print(np.shape(data))
-    print(np.shape(target))
     return np.array(data), np.array(target)
 
+
 if __name__ == '__main__':
-    data, target = load_data("trainfinal.txt")
-    print(np.shape(data))
+    load_data_cue_word("trainfinal.txt")
