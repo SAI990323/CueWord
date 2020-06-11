@@ -16,7 +16,8 @@ def read_word2vec(file):
                 continue
             line = line.strip().split()
             word2vec[line[0]] = np.array(line[1:], dtype=np.float64)
-
+    word2vec["EPT"] = np.random.rand(600)
+    word2vec["UNK"] = np.ones(600)
     return word2vec
 
 
@@ -40,33 +41,35 @@ def initial(words, word2vec):
 
 def get_dict():
     dict = {}
-    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+    with open("/ghome/baokq/workspace/CueWords/trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             lines = line.strip().split()
             for word in lines:
                 if dict.get(word) == None:
-                    dict[word] = cnt
                     cnt = cnt + 1
+                    dict[word] = cnt
+    dict["UNK"] = 0
     return dict
 
 def get_id_dict():
     dict = {}
     id_dict = {}
-    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+    with open("/ghome/baokq/workspace/CueWords/trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             lines = line.strip().split()
             for word in lines:
                 if dict.get(word) == None:
+                    cnt = cnt + 1
                     dict[word] = cnt
                     id_dict[cnt] = word
-                    cnt = cnt + 1
+    id_dict[0] = "UNK"
     return id_dict
 
 def get_cue_dict():
     cue_dict = {}
-    with open("dict.txt", 'r', encoding='UTF-8') as f:
+    with open("/ghome/baokq/workspace/CueWords/dict.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             words = line.strip().split()
@@ -81,7 +84,7 @@ def get_cue_dict():
 
 def get_cue_dict_id():
     cue_dict = {}
-    with open("dict.txt", 'r', encoding='UTF-8') as f:
+    with open("/ghome/baokq/workspace/CueWords/dict.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             words = line.strip().split()
@@ -98,10 +101,11 @@ def get_cue_dict_id():
 def load_data_cue_word(file):
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = read_word2vec("word2vec.txt")
+    word2vec = read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
     data = []
     target = []
     sentence_target = []
+    mx = 0
     with open(file, 'r', encoding='UTF-8') as f:
         lastline = None
         for line in f:
@@ -116,10 +120,12 @@ def load_data_cue_word(file):
                 p = []
                 for word in words[:-1]:
                     p.append(dict[word])
-                while len(p) < sentence_len:
+                    mx = max(mx, dict[word])
+                while len(p) < sentence_len // 2:
                     p.append(0)
                 target.append(cue_dict[words[-1]])
-                sentence_target.append(p[:sentence_len])
+
+                sentence_target.append(p[:sentence_len // 2])
             lastline = line
     return np.array(data), np.array(target), np.array(sentence_target)
 
@@ -127,7 +133,7 @@ def load_data_cue_word(file):
 def load_data(file):
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = read_word2vec("word2vec.txt")
+    word2vec = read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
     with open(file, 'r', encoding='UTF-8') as f:
         data = []
         target = []
@@ -147,4 +153,4 @@ def load_data(file):
 
 
 if __name__ == '__main__':
-    load_data_cue_word("trainfinal.txt")
+    load_data_cue_word("trainfinal_en.txt")
