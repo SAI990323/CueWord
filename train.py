@@ -189,33 +189,30 @@ def train_cue_word(epochs = 100, batch_size = 64, learning_rate = 0.0001):
                 learning_rate /= 2
                 optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
             lastcorrect = correct
-        if epoch % 100 == 99 :
-            lr1 /= 2
-            optimizer1 = torch.optim.Adam(dnet.parameters(), lr=lr1)
-            with torch.no_grad():
-                data, target, sentence_target = load.load_data_cue_word("test.txt")
-                trainset = MyData(data, target, sentence_target)
-                trainset = torch.utils.data.DataLoader(trainset, batch_size=64)
-                for data, target, sentence_target in trainset:
-                    input = data.to(device)
-                    target = target.to(device)
-                    sentence_target = sentence_target.to(device)
-                    cue_word , (h_t,c_t), (h_t2,c_t2) = net(input, target.reshape(target.size(0), 1))
-                    mx = torch.argmax(cue_word.detach(), dim=1).to(device).reshape(cue_word.size(0), 1)
-                    p = torch.zeros((input.size(0), 600)).to(device)
-                    for i in range(input.size(0)):
-                        p[i] = torch.FloatTensor(word2vec[id_dict[int(mx[i])]])
-                    decoder_input = torch.zeros(input.size(0), input.size(1) // 2, 600).to(device)
-                    for i in range(input.size(1) // 2):
-                        decoder_input[:, 0, :] = p.detach()
-                    sentences = dnet(decoder_input.detach(), (h_t.detach(), h_t2.detach()), (c_t.detach(), c_t2.detach()))
-                    sentences = sentences.squeeze(dim=0)
-                    for j in range(input.size(0)):
-                        print(id_dict[int(mx[j])])
-                        ans = []
-                        for i in range(22):
-                            ans.append(id2dict[int(torch.argmax(sentences[j,i]))])
-                        print(ans)
+        with torch.no_grad():
+            data, target, sentence_target = load.load_data_cue_word("test.txt")
+            trainset = MyData(data, target, sentence_target)
+            trainset = torch.utils.data.DataLoader(trainset, batch_size=64)
+            for data, target, sentence_target in trainset:
+                input = data.to(device)
+                target = target.to(device)
+                sentence_target = sentence_target.to(device)
+                cue_word , (h_t,c_t), (h_t2,c_t2) = net(input, target.reshape(target.size(0), 1))
+                mx = torch.argmax(cue_word.detach(), dim=1).to(device).reshape(cue_word.size(0), 1)
+                p = torch.zeros((input.size(0), 600)).to(device)
+                for i in range(input.size(0)):
+                    p[i] = torch.FloatTensor(word2vec[id_dict[int(mx[i])]])
+                decoder_input = torch.zeros(input.size(0), input.size(1) // 2, 600).to(device)
+                for i in range(input.size(1) // 2):
+                    decoder_input[:, 0, :] = p.detach()
+                sentences = dnet(decoder_input.detach(), (h_t.detach(), h_t2.detach()), (c_t.detach(), c_t2.detach()))
+                sentences = sentences.squeeze(dim=0)
+                for j in range(input.size(0)):
+                    print(id_dict[int(mx[j])])
+                    ans = []
+                    for i in range(22):
+                        ans.append(id2dict[int(torch.argmax(sentences[j,i]))])
+                    print(ans)
     with torch.no_grad():
         correct = 0
         total = 0
