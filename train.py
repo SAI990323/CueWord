@@ -8,7 +8,7 @@ import argparse
 
 id_dict = load.get_cue_dict_id()
 id2dict = load.get_id_dict()
-word2vec = load.read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
+word2vec = load.read_word2vec("word2vec.txt")
 dict_size = 5633
 
 class MyData(data.Dataset):
@@ -125,7 +125,7 @@ def train_cue_word(epochs = 100, batch_size = 64, learning_rate = 0.0001):
     :param learning_rate: 学习率
     :return:
     '''
-    data, target, sentence_target = load.load_data_cue_word("/ghome/baokq/workspace/CueWords/trainfinal_en.txt")
+    data, target, sentence_target = load.load_data_cue_word("trainfinal_en.txt")
     total = len(data)
     print(total)
     train_size = int(total / 10) * 8
