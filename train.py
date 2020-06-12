@@ -4,6 +4,7 @@ import load
 from torch.utils import data
 import numpy as np
 import math
+import argparse
 
 id_dict = load.get_cue_dict_id()
 id2dict = load.get_id_dict()
@@ -12,6 +13,11 @@ dict_size = 5633
 
 class MyData(data.Dataset):
     def __init__(self, data, target, sentence_target):
+        '''
+        :param data: 一句话对应的向量
+        :param target: cue_word 对应的向量
+        :param sentence_target: answer对应的向量
+        '''
         self.data = data
         self.target = target
         self.sentence_target = sentence_target
@@ -30,21 +36,30 @@ device = torch.device("cuda")
 class CueWordSelectNet(nn.Module):
 
     def __init__(self, input_size = 600, hidden_size = 1000):
+        '''
+        :param input_size: 词向量长度
+        :param hidden_size: 隐藏层大小
+        '''
         self.hidden_size = hidden_size
         self.input_size = input_size
         super(CueWordSelectNet, self).__init__()
-        #self.encoder= nn.LSTM(input_size,hidden_size,2, batch_first=True, bias=False)
         self.encoder1 = nn.LSTMCell(input_size + hidden_size, hidden_size, bias=True)
-        self.encoder2 = nn.LSTMCell(hidden_size + hidden_size, hidden_size, bias = True)
+        self.encoder2 = nn.LSTMCell(input_size + hidden_size + hidden_size, hidden_size, bias = True)
         self.layer1 = nn.Linear(hidden_size + 1000,4000)
         self.layer2 = nn.Linear(4000,1000)
         self.layer3 = nn.Linear(1000, hidden_size, bias=True)
 
     def forward(self, input, h):
+        '''
+        :param input: query 对应的向量
+        :param h: query中cue_word对应的id
+        :return: cue_word select的softmax结果 和 lstm的隐藏层结果
+        '''
         h_t = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype).to(device)
         c_t = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype).to(device)
         h_t2 = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype).to(device)
         c_t2 = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype).to(device)
+        zeros = torch.zeros(input.size(0), self.input_size, dtype=input.dtype).to(device)
         #output, (h_t,c_t) = self.encoder(input, (h_t,c_t)) #encoder
         for i, data in enumerate(input.chunk(input.size(1), dim = 1)):
             with torch.autograd.set_detect_anomaly(True):
@@ -52,7 +67,7 @@ class CueWordSelectNet(nn.Module):
                 data = data.squeeze(1)
                 l1_input = torch.cat((data, h_t), dim = 1)
                 (h_t, c_t) = self.encoder1(l1_input, (h_t, c_t))
-                l2_input = torch.cat((h_t, h_t2), dim = 1)
+                l2_input = torch.cat([zeros,h_t, h_t2], dim = 1)
                 (h_t2, c_t2) = self.encoder2(l2_input, (h_t2, c_t2))
         topic_tracker = torch.zeros(input.size(0), self.hidden_size).to(device).scatter(1, h, 1) #need to add
         MLP_input = torch.cat((h_t,topic_tracker), dim = 1)
@@ -63,6 +78,10 @@ class CueWordSelectNet(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(self, input_size = 600, hidden_size = 1000):
+        '''
+        :param input_size: 词向量长度
+        :param hidden_size: 隐藏层节点数
+        '''
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         self.input_size = input_size
@@ -72,13 +91,14 @@ class Decoder(nn.Module):
         self.linear = nn.Linear(hidden_size, dict_size)
 
     def forward(self, input, h, hh):
+        '''
+        :param input: decoder的输入 实质时cue_word词向量
+        :param h: h隐藏层特征
+        :param hh: c隐藏层特征
+        :return: 输出对话
+        '''
         (h_t, c_t) = h
         (h_t2, c_t2) = hh
-        # (h_list, c_list) = h
-        # h_t = h_list[0]
-        # h_t2 = h_list[1]
-        # c_t = c_list[0]
-        # c_t2 = c_list[1]
         input = self.layer(input)
         decoder_input = input
         output_sentence = torch.zeros(input.size(0), 22, dict_size, dtype=input.dtype).to(device)
@@ -98,6 +118,13 @@ class Decoder(nn.Module):
 
 
 def train_cue_word(epochs = 100, batch_size = 64, learning_rate = 0.0001):
+    '''
+    用来第一轮深度学习训练
+    :param epochs: 训练轮数
+    :param batch_size: batch大小
+    :param learning_rate: 学习率
+    :return:
+    '''
     data, target, sentence_target = load.load_data_cue_word("/ghome/baokq/workspace/CueWords/trainfinal_en.txt")
     total = len(data)
     print(total)
@@ -166,7 +193,7 @@ def train_cue_word(epochs = 100, batch_size = 64, learning_rate = 0.0001):
             lr1 /= 2
             optimizer1 = torch.optim.Adam(dnet.parameters(), lr=lr1)
             with torch.no_grad():
-                data, target, sentence_target = load.load_data_cue_word("/ghome/baokq/workspace/CueWords/test.txt")
+                data, target, sentence_target = load.load_data_cue_word("test.txt")
                 trainset = MyData(data, target, sentence_target)
                 trainset = torch.utils.data.DataLoader(trainset, batch_size=64)
                 for data, target, sentence_target in trainset:
@@ -201,19 +228,26 @@ def train_cue_word(epochs = 100, batch_size = 64, learning_rate = 0.0001):
             total += data.size(0)
     print("test correct %.4f" % (correct / total))
     state = {'net': net.state_dict()}
-    torch.save(state, "/ghome/baokq/workspace/CueWords/single_net.model")
+    torch.save(state, "single_net.model")
     state = {'dnet': dnet.state_dict()}
-    torch.save(state, "/ghome/baokq/workspace/CueWords/single_dnet.model")
+    torch.save(state, "single_dnet.model")
 
 
 
 def train(epochs = 100, batch_size = 64, learning_rate = 0.0001):
+    '''
+    用来进行第二轮 RL训练
+    :param epochs: 训练轮数
+    :param batch_size: batch大小
+    :param learning_rate: 学习率
+    :return:
+    '''
     sampling_times = 5
     T = 3
     #data, target = load.load_data("trainfinal_en.txt")
     id_dict = load.get_cue_dict_id()
     cue_dict = load.get_cue_dict()
-    word2vec = load.read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
+    word2vec = load.read_word2vec("word2vec.txt")
     checkpoint = torch.load("single_net.model")
     net = CueWordSelectNet().to(device)
     net.load_state_dict(checkpoint['net'])
@@ -226,7 +260,7 @@ def train(epochs = 100, batch_size = 64, learning_rate = 0.0001):
     targets = []
     gamma = 0.9
 
-    with open("/ghome/baokq/workspace/CueWords/trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         data = []
         target = []
         for line in f:
@@ -297,12 +331,17 @@ def train(epochs = 100, batch_size = 64, learning_rate = 0.0001):
                 data.append(sentence)
                 target.append(cue_dict[words[-1]])
 
-    # state = {'net': net.state_dict()}
-    # torch.save(state, "final_net.model")
-    # state = {'dnet': dnet.state_dict()}
-    # torch.save(state, "final_dnet.model")
+    state = {'net': net.state_dict()}
+    torch.save(state, "final_net.model")
+    state = {'dnet': dnet.state_dict()}
+    torch.save(state, "final_dnet.model")
 
 
 if __name__ == '__main__':
-    train_cue_word()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch", dest="batch_size", default=128, type=int)
+    parser.add_argument("--epoch", dest="epoch", default=40, type=int)
+    parser.add_argument("--learning_rate", dest="lr", default=0.1,type=float)
+    args = parser.parse_args()
+    train_cue_word(epochs=args.epoch, batch_size=args.batch_size, learning_rate=args.lr)
 

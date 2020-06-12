@@ -7,6 +7,10 @@ vec_len = 600
 # 按照论文所说 一句话最多44个词 不足补0 超过截断
 
 def read_word2vec(file):
+    '''
+    :param file: 给定一个gensim训练以后输出到文件的word2vec文件 要求其格式为 单词 向量 \n
+    :return: 返回一个map，key为word, value为vector 其中EPT定义为一个随机向量, UNK定义为全1向量 其中词向量长度为00
+    '''
     with open(file, 'r', encoding='utf-8') as f:
         word2vec = {}
         cnt = 0
@@ -22,6 +26,11 @@ def read_word2vec(file):
 
 
 def initial(words, word2vec):
+    '''
+    :param words: 一个list, 对应了输入数据一行的所有单词
+    :param word2vec: word2vec对应的map
+    :return: 返回一个44 * 600的list，每一个位置对应一个词向量, 若words长度不足，则在前面补全0向量
+    '''
     sentence = []
     zero = [0 for i in range(vec_len)]
     ones = [1 for i in range(vec_len)]
@@ -40,8 +49,11 @@ def initial(words, word2vec):
 
 
 def get_dict():
+    '''
+    :return: 给每一个word标号，并返回一个map key为word， value为id
+    '''
     dict = {}
-    with open("/ghome/baokq/workspace/CueWords/trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             lines = line.strip().split()
@@ -53,9 +65,12 @@ def get_dict():
     return dict
 
 def get_id_dict():
+    '''
+    :return: 给每一个word标号返回一个map key为id， value为word
+    '''
     dict = {}
     id_dict = {}
-    with open("/ghome/baokq/workspace/CueWords/trainfinal_en.txt", 'r', encoding='UTF-8') as f:
+    with open("trainfinal_en.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             lines = line.strip().split()
@@ -68,8 +83,11 @@ def get_id_dict():
     return id_dict
 
 def get_cue_dict():
+    '''
+    :return: 给每一个cue_word标号，并返回一个map key为cue_word， value为id
+    '''
     cue_dict = {}
-    with open("/ghome/baokq/workspace/CueWords/dict.txt", 'r', encoding='UTF-8') as f:
+    with open("dict.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             words = line.strip().split()
@@ -83,8 +101,11 @@ def get_cue_dict():
     return cue_dict
 
 def get_cue_dict_id():
+    '''
+    :return:   给每一个cue_word标号返回一个map key为id， value为cue_word
+    '''
     cue_dict = {}
-    with open("/ghome/baokq/workspace/CueWords/dict.txt", 'r', encoding='UTF-8') as f:
+    with open("dict.txt", 'r', encoding='UTF-8') as f:
         cnt = 0
         for line in f:
             words = line.strip().split()
@@ -99,9 +120,15 @@ def get_cue_dict_id():
 
 
 def load_data_cue_word(file):
+    '''
+    :param file: 处理好的训练文件
+    :return data: 训练数据 每一个是一个query (n * 44 * 600)
+    :return target：cue_word target 对应一个query anwser的cue_word n
+    :return sentence_target: 对应一个query 训练集中的anwswer (n * 22 * 600)
+    '''
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
+    word2vec = read_word2vec("word2vec.txt")
     data = []
     target = []
     sentence_target = []
@@ -131,9 +158,14 @@ def load_data_cue_word(file):
 
 
 def load_data(file):
+    '''
+    :param file:  处理好的训练文件
+    :return data: 返回对话训练用的数据 先认为每轮对话有3句进行测试  n * 3 * 44 * 100
+    :return target： 对应每句话的cue_word
+    '''
     cue_dict = get_cue_dict()
     dict = get_dict()
-    word2vec = read_word2vec("/ghome/baokq/workspace/CueWords/word2vec.txt")
+    word2vec = read_word2vec("word2vec.txt")
     with open(file, 'r', encoding='UTF-8') as f:
         data = []
         target = []

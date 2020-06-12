@@ -3,6 +3,11 @@ import re
 import nltk.stem as ns
 
 def read_en_train_data(file):
+    '''
+    进行分词处理 首先去除标点符号 然后按照要求 先将名词动词形容词还原到原型 然后统计出现次数 输出到dict.txt中
+    :param file: 进行过remove处理的数据
+    :return: 将去除标点以后的文件输出到train_en_new.txt
+    '''
     import nltk
     dict = {}
     lemmatizer = ns.WordNetLemmatizer()
@@ -50,6 +55,11 @@ def read_en_train_data(file):
     p.close()
 
 def read_train_data(file):
+    '''
+    中文处理时使用这个 与read_en_train_data相同
+    :param file:
+    :return:
+    '''
     dict = {}
     with open(file, 'r', encoding='UTF-8') as f:
         ff = open("trainnew.txt", 'w', encoding='UTF-8')
@@ -83,6 +93,11 @@ def read_train_data(file):
 
 
 def remove(file):
+    '''
+    删除小于三轮的对话
+    :param file: train_en.txt 经过处理换行符后的文件
+    :return: none
+    '''
     with open(file, 'r', encoding = 'UTF-8') as f:
         ff = open('train_remove.txt', 'w', encoding='UTF-8')
         lines = []
@@ -106,6 +121,11 @@ def remove(file):
 reply = {}
 
 def check(lastline, nowline):
+    '''
+    :param lastline:  询问
+    :param nowline:  回答
+    :return: 检查是否回答单词书>=3 且回答出现次数小于等于10次
+    '''
     if len(lastline) >= 3 and lastline[0] == lastline[1] and lastline[1] == lastline[2]:
         return False
     if len(nowline) >= 3 and nowline[0] == nowline[1] and nowline[1] == nowline[2]:
@@ -123,6 +143,14 @@ def check(lastline, nowline):
 
 
 def find_cue_word(dict, cue_dict, line, EPT = True):
+    '''
+    给定一个句话 将单词表中出现次数少于6次的单词化成UNK 并找到其中的cue_dict
+    :param dict:  dict
+    :param cue_dict: cue_dict
+    :param line: 一句话
+    :param EPT: 是否能够使用EPT作为cue word
+    :return: 新的对话 和 cue_word 以及是否使用EPT 要保证EPT使用次数小于等于1000次
+    '''
     lines = line.strip().split()
     list = []
     cue_word = None
@@ -143,6 +171,11 @@ def find_cue_word(dict, cue_dict, line, EPT = True):
     return list, cue_word, 0
 
 def signal(file):
+    '''
+    首先预处理得到 dict 和 cue_dict 然后对每一句话 标注cue_dict 未标注成功的对话 删除
+    :param file: train_en_new.txt
+    :return: 输出到trainfinal_en.txt
+    '''
     dict = {}
     cue_dict = {}
     with open("dict.txt", 'r', encoding='UTF-8') as f:
@@ -202,6 +235,11 @@ def signal(file):
 
 
 def initial_file(file):
+    '''
+    对数据进行预处里 将数据中的__eou__ 换成换行 输出到train_en.txt
+    :param file: 初始数据文件
+    :return:  none
+    '''
     with open(file, 'r', encoding='UTF-8') as f:
         ff = open("train_en.txt", 'w', encoding='utf-8')
         for line in f:
@@ -212,23 +250,6 @@ def initial_file(file):
                     continue
                 ff.write(word + " ")
             ff.write("\n")
-
-def generate_dict(file):
-    dict = {}
-    with open(file, 'r', encoding='UTF-8') as f:
-        for line in f:
-            words = line.strip().split()
-
-
-def nlt():
-    import nltk
-    from nltk.corpus import stopwords
-    from nltk.corpus import brown
-    import numpy as np
-    text = "problem.Do"
-    text_list = text.split()
-    output = nltk.pos_tag(text_list)
-    print(output)
 
 if __name__ == '__main__':
     read_en_train_data("train_en.txt")

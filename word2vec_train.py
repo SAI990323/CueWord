@@ -2,6 +2,10 @@ from gensim.models import word2vec
 
 
 def train():
+    '''
+    用gensim进行训练 设定min_count = 6, size = 600 最终结果保存到word2vec.txt中
+    :return: none
+    '''
     with open("train_en_new.txt", 'r', encoding="UTF-8") as f:
         word2 = set()
         cnt = 0
